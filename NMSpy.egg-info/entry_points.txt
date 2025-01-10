@@ -1,0 +1,2 @@
+[pymhflib]
+nmspy = nmspy

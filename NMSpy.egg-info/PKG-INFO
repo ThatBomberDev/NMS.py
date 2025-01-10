@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: NMSpy
+Version: 0.1.dev54
+Summary: No Man's Sky python modding API
+Author: monkeyman192
+Maintainer: monkeyman192
+Project-URL: Homepage, https://github.com/monkeyman192/NMS.py
+Project-URL: Repository, https://github.com/monkeyman192/NMS.py.git
+Keywords: hooking,games,hacking,modding
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Environment :: Win32 (MS Windows)
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: Microsoft
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.9
+License-File: LICENCE.md
+Requires-Dist: pymhf[gui]==0.1.8

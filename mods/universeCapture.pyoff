@@ -1,0 +1,100 @@
+import logging
+import ctypes
+from dataclasses import dataclass
+
+from pymhf.core.hooking import disable, on_key_pressed
+from pymhf.core.memutils import map_struct
+from pymhf.core.mod_loader import ModState
+from nmspy import NMSMod
+from pymhf.core.calling import call_function
+import pymhf.core.hooking
+from pymhf import FUNCDEF
+from pymhf.core.module_data import module_data
+from pymhf.gui import FLOAT
+import ctypes
+from nmspy.data.common import GcSeed
+from nmspy.data.common import cTkFixedString
+
+
+@dataclass
+class captureState(ModState):
+    solarSystemAddress = 0
+    generationDataAddress = 0
+    galaxyAttributesAddress = 0
+    solarGeneratorAddress = 0
+
+@disable
+class universeCapture(NMSMod):
+    __author__ = "ThatBomberBoi"
+    __description__ = "WIP: Attempts to capture the entire universe's data"
+    __version__ = "0.1"
+    __NMSPY_required_version__ = "0.7.0"    
+
+    state = captureState()
+
+    def __init__(self):
+        super().__init__()
+        self.should_print = False
+
+    solarQueryFD = FUNCDEF(restype=ctypes.c_ulonglong, argtypes=[ctypes.c_ulonglong, ctypes.c_ulonglong, ctypes.c_int])
+    @pymhf.core.hooking.manual_hook("cGcSolarSystemQuery::Run", pattern="44 88 4C 24 20 53 56", func_def=solarQueryFD, detour_time="after")
+    def onQuery(self, this, ua, type, _result_):
+        logging.info(f"Solar Query Address: {this}")
+        logging.info(f"Solar Query UA: {ua}")
+        logging.info(f"Solar Query Type: {type}")
+
+        #self.state.generationDataAddress = this + 0xAD0
+        #self.state.galaxyAttributesAddress = this + 0x20    
+        #systemSeed = map_struct(this + 0x10, GcSeed)
+        #logging.info("All Fields Mapped")
+
+
+
+    solarGeneratorFD = FUNCDEF(restype=ctypes.c_ulonglong, argtypes=[ctypes.c_ulonglong,GcSeed,ctypes.c_ulonglong,ctypes.c_ulonglong ])
+    @pymhf.core.hooking.manual_hook("cGcSolarSystemGenerator::Generate", pattern="48 89 5C 24 18 4C 89 4C 24 20 48 89 4C 24 08 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 20", func_def=solarGeneratorFD, detour_time="after")
+    def onGeneratorTriggered(self, this, seed:GcSeed, attributes, data):
+        self.state.solarGeneratorAddress = this
+        #self.state.solarSystemAddress = self.state.generationDataAddress
+        logging.info(f"System Generator Active::System {seed.Seed}")
+        
+        
+
+
+    systemGenerateFuncDef = FUNCDEF(restype=ctypes.c_char, argtypes=[ctypes.c_ulonglong, ctypes.c_bool, GcSeed])  
+    @pymhf.core.hooking.manual_hook("cGcSolarSystem::Generate", pattern="48 8B C4 48 89 58 18 55 56 57 41 54 41 55 41 56 41 57 48 8D A8 98 F8", func_def=systemGenerateFuncDef, detour_time="after")
+    def onSystemGenerated(self, this, fromSettings, seed:GcSeed):
+        self.state.solarSystemAddress = this
+        logging.info("cGcSolarSystem::Generate")
+
+    getNameFD = FUNCDEF(restype=ctypes.c_char_p, argtypes=[ctypes.c_ulonglong, cTkFixedString[0x127]])
+    #@pymhf.core.hooking.manual_hook("cGcNameGenerator::GenerateSolarSystemName", pattern="4C 89 44 24 18 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 58", func_def=getNameFD, detour_time="after")
+    #def onNameGenerated(self, this, nameString, _result_):
+    #    logging.info("Getting Name")
+    #    logging.info(f"Name String: {nameString}")
+    #    logging.info(f"Name: {_result_}")
+
+    @on_key_pressed("6")
+    def genSys(self):
+        logging.info("Start")
+        systemSeed= GcSeed(927327392, True)
+        map_struct(self.state.solarSystemAddress + 0x20F0, GcSeed).Seed = systemSeed.Seed
+        logging.info("Set Seed")
+        call_function("cGcSolarSystem::Generate", self.state.solarSystemAddress, False, systemSeed, pattern="48 8B C4 48 89 58 18 55 56 57 41 54 41 55 41 56 41 57 48 8D A8 98 F8", func_def=self.systemGenerateFuncDef)    
+        
+        planetsAddress = self.state.solarSystemAddress + 0x2580
+        planetDataOffset = 0x60
+        perPlanetOffset = 0xD9170
+
+        numPlanets = map_struct(self.state.solarSystemAddress + 0x21B4, ctypes.c_int).value
+        for i in range(numPlanets):
+            biomeOffset = i*0x50
+            currentPlanetOffset = planetsAddress + perPlanetOffset*i
+            currentPlanetDataAddress = currentPlanetOffset + planetDataOffset
+            logging.info(f"Planet {i} Name: {str(map_struct(currentPlanetDataAddress + 0x3A6E, cTkFixedString[0x80]))}")
+            logging.info(f"Planet {i} Biome: {map_struct(self.state.solarSystemAddress + 0x1E30 + 0x30 + biomeOffset, ctypes.c_int).value}")
+         
+        
+        
+
+        
+    
